@@ -17,14 +17,39 @@ class VietnameseNLPProcessor:
     def __init__(self):
         # Từ khóa để xác định các phần của câu (có dấu và không dấu)
         self.reminder_patterns = [
-            # Có dấu
+            # PHÚT - Có dấu
             r'nhắc\s+(tôi|mình)?\s*trước\s*(\d+)\s*phút',
             r'nhắc\s+nhở\s*trước\s*(\d+)\s*phút',
             r'báo\s+trước\s*(\d+)\s*phút',
-            # Không dấu
+            r'trước\s*(\d+)\s*phút',
+            
+            # PHÚT - Không dấu
             r'nhac\s+(toi|minh)?\s*truoc\s*(\d+)\s*phut',
             r'nhac\s+nho\s*truoc\s*(\d+)\s*phut',
-            r'bao\s*truoc\s*(\d+)\s*phut'
+            r'bao\s*truoc\s*(\d+)\s*phut',
+            r'truoc\s*(\d+)\s*phut',
+            
+            # GIỜ - Có dấu
+            r'nhắc\s+(tôi|mình)?\s*trước\s*(\d+)\s*giờ',
+            r'nhắc\s+nhở\s*trước\s*(\d+)\s*giờ',
+            r'báo\s+trước\s*(\d+)\s*giờ',
+            r'trước\s*(\d+)\s*giờ',
+            
+            # GIỜ - Không dấu
+            r'nhac\s+(toi|minh)?\s*truoc\s*(\d+)\s*gio',
+            r'nhac\s+nho\s*truoc\s*(\d+)\s*gio',
+            r'bao\s*truoc\s*(\d+)\s*gio',
+            r'truoc\s*(\d+)\s*gio',
+            
+            # PHÚT - Viết tắt (p)
+            r'nhắc\s+(tôi|mình)?\s*trước\s*(\d+)\s*p',
+            r'nhắc\s+nhở\s*trước\s*(\d+)\s*p',
+            r'trước\s*(\d+)\s*p',
+            
+            # PHÚT - Không đơn vị (mặc định phút)
+            r'nhắc\s+(tôi|mình)?\s*trước\s*(\d+)',
+            r'nhắc\s+nhở\s*trước\s*(\d+)',
+            r'trước\s*(\d+)\s*$'
         ]
         
     def remove_accents(self, text):
@@ -35,31 +60,41 @@ class VietnameseNLPProcessor:
         )
     
     def normalize_text(self, text):
-        """Chuẩn hóa văn bản - hỗ trợ cả có dấu và không dấu"""
+        """Chuẩn hóa văn bản"""
         # Chuyển về chữ thường
         text = text.lower().strip()
         
+        # Thứ hai tới → thứ 2 tuần tới
+        text = re.sub(r'\bthu\s+([0-9]+|[a-z]+)\s+\btoi\b', r'thứ \1 tuần tới', text)
+
         # Chuẩn hóa các từ viết tắt (cả có dấu và không dấu)
         text = re.sub(r'\bnhắc tôi\b', 'nhắc', text)
         text = re.sub(r'\bnhắc mình\b', 'nhắc', text)
         text = re.sub(r'\bnhac toi\b', 'nhắc', text)
         text = re.sub(r'\bnhac minh\b', 'nhắc', text)
+        text = re.sub(r'\bnhac\b', 'nhắc', text)
+        text = re.sub(r'\bnahc\b', 'nhắc', text)
+        text = re.sub(r'\btruoc\b', 'trước', text)
 
-        # Chuẩn hóa thời gian - SỬA QUAN TRỌNG
+        # Chuẩn hóa thời gian
         text = re.sub(r'(\d+)\s*gio\b', r'\1 giờ', text)  # Bỏ \b ở sau gio
         text = re.sub(r'(\d+)\s*g\b', r'\1 giờ', text)
         text = re.sub(r'(\d+)\s*h\b', r'\1 giờ', text)
+        text = re.sub(r'(\d+)\s*phut\b', r'\1 phút', text)
+        text = re.sub(r'(\d+)\s*p\b', r'\1 phút', text)
+
+        #Chuẩn hóa thứ
+        text = re.sub(r'\bthu hai\b', 'thứ hai', text)
+        text = re.sub(r'\bthu ba\b', 'thứ ba', text)
+        text = re.sub(r'\bthu tu\b', 'thứ tư', text)
+        text = re.sub(r'\bthu nam\b', 'thứ năm', text)
+        text = re.sub(r'\bthu sau\b', 'thứ sáu', text)
+        text = re.sub(r'\bthu bay\b', 'thứ bảy', text)
+        text = re.sub(r'\bchu nhat\b', 'chủ nhật', text)
+        text = re.sub(r'\bchu nhat toi\b', 'chủ nhật tuần tới', text)
         
-        # Chuẩn hóa các từ thông dụng khác
-        # text = re.sub(r'\bsang\b', 'sáng', text)
-        # text = re.sub(r'\bchieu\b', 'chiều', text)
-        # text = re.sub(r'\btoi\b', 'tối', text)
-        # text = re.sub(r'\bo\b', 'ở', text)
-        # text = re.sub(r'\btai\b', 'tại', text)
-        # text = re.sub(r'\bluc\b', 'lúc', text)
-        # text = re.sub(r'\bvao\b', 'vào', text)
-        # text = re.sub(r'\bnha[cct]\b', 'nhắc', text)
-        # text = re.sub(r'\bphut\b', 'phút', text)
+        #Chuyển "X giờ Y" thành "X:Y" trước khi xử lý khác
+        text = re.sub(r'(\d+)\s*(giờ|h|gio)\s*(\d+)\b', r'\1:\3', text)
         
         return text
     
@@ -81,32 +116,49 @@ class VietnameseNLPProcessor:
         
         return processed_text
     
+
     def extract_reminder_minutes(self, text):
         """Trích xuất thời gian nhắc nhở"""
         # Chuẩn hóa text trước khi xử lý
         normalized_text = self.normalize_text(text)
         
         for pattern in self.reminder_patterns:
-            match = re.search(pattern, normalized_text)
+            match = re.search(pattern, normalized_text, re.IGNORECASE)
             if match:
-                # Lấy số phút từ group phù hợp
+                # Lấy số từ group phù hợp
                 groups = match.groups()
                 for group in groups:
                     if group and group.isdigit():
-                        return int(group)
+                        number = int(group)
+                        
+                        # Kiểm tra đơn vị
+                        # Nếu pattern chứa "giờ" hoặc "gio" → nhân 60
+                        if re.search(r'giờ|gio', pattern, re.IGNORECASE):
+                            return number * 60
+                        # Nếu pattern chứa "phút", "phut", hoặc "p" → giữ nguyên
+                        elif re.search(r'phút|phut|p', pattern, re.IGNORECASE):
+                            return number
+                        else:
+                            # Mặc định là phút
+                            return number
+                
                 # Nếu không tìm thấy số trong groups, thử tìm trong toàn bộ match
                 full_match = re.search(r'(\d+)', match.group())
                 if full_match:
-                    return int(full_match.group(1))
+                    number = int(full_match.group(1))
+                    # Kiểm tra đơn vị từ pattern
+                    if re.search(r'giờ|gio', pattern, re.IGNORECASE):
+                        return number * 60
+                    else:
+                        return number
+        
         return 0
     
     def extract_event_name(self, text):
-        """Trích xuất tên sự kiện - FIXED VERSION"""
+        """Trích xuất tên sự kiện"""
         # Chuẩn hóa text
         normalized_text = self.normalize_text(text)
         clean_text = normalized_text
-        
-        # print(f"DEBUG extract_event_name input: '{clean_text}'")
         
         # Bước 1: Loại bỏ phần nhắc nhở
         clean_text = re.sub(r',\s*nhắc\s*(tôi|mình)?\s*trước\s*\d+\s*phút\s*\.?', '', clean_text)
@@ -118,8 +170,6 @@ class VietnameseNLPProcessor:
         clean_text = re.sub(r'^nhắc\s+', '', clean_text)
         clean_text = re.sub(r'^nhac\s+', '', clean_text)
         
-        # print(f"DEBUG after remove reminder: '{clean_text}'")
-        
         # Bước 3: Tìm tất cả các từ khóa phân cách (thời gian và địa điểm)
         separator_patterns = [
             # Thời gian
@@ -127,7 +177,7 @@ class VietnameseNLPProcessor:
             r'\d+\s*(giờ|h|gio)', r'\d+:\d+', r'\d+\s*(sáng|chiều|tối|sang|chieu|toi)',
             r'luc\s+\d+', r'vao\s+luc\s+\d+', r'vao\s+\d+',
             # Địa điểm
-            r'ở\s+', r'tại\s+', r'o\s+', r'tai\s+'
+            r'ở\s+', r'tại\s+', r'\bo\s+', r'tai\s+'
         ]
         
         # Tìm vị trí của tất cả các separator
@@ -144,26 +194,20 @@ class VietnameseNLPProcessor:
         # Sắp xếp theo vị trí
         separator_positions.sort(key=lambda x: x['position'])
         
-        # print(f"DEBUG found separators: {separator_positions}")
-        
         # Bước 4: Tìm separator đầu tiên (có thể là thời gian HOẶC địa điểm)
         if separator_positions:
             first_separator = separator_positions[0]
             first_separator_pos = first_separator['position']
             
-            # print(f"DEBUG first separator at position {first_separator_pos}: type={first_separator['type']}")
-            
             # Lấy phần trước separator đầu tiên làm tên sự kiện
             event_part = clean_text[:first_separator_pos].strip()
-            # print(f"DEBUG event part before first separator: '{event_part}'")
             
             # Làm sạch: loại bỏ các từ không cần thiết ở cuối
-            event_part = re.sub(r'\s*(ở|tại|o|tai|và|va|,)\s*$', '', event_part)
+            event_part = re.sub(r'\s*(ở|tại|\bo\b|tai|và|va|,)\s*$', '', event_part)
             event_part = event_part.strip()
             
             # Nếu event_part có ý nghĩa, trả về
             if event_part and len(event_part) > 1 and event_part not in ['vào', 'ở']:
-                # print(f"DEBUG final event name: '{event_part}'")
                 return event_part
         
         # Fallback: tìm phần trước dấu phẩy đầu tiên
@@ -172,7 +216,6 @@ class VietnameseNLPProcessor:
             event_part = parts[0].strip()
             event_part = re.sub(r'\s*(ở|tại|o|tai|và|va)\s*$', '', event_part)
             if event_part and len(event_part) > 1:
-                # print(f"DEBUG fallback event name from first comma: '{event_part}'")
                 return event_part
         
         # Fallback cuối cùng: lấy 3-4 từ đầu tiên làm tên sự kiện
@@ -182,7 +225,6 @@ class VietnameseNLPProcessor:
             meaningful_words = [w for w in words if w not in ['vào', 'ở', 'tại', 'o', 'tai', 'và', 'va']]
             if meaningful_words:
                 event_part = ' '.join(meaningful_words[:min(3, len(meaningful_words))])
-                # print(f"DEBUG final fallback event name: '{event_part}'")
                 return event_part
         
         return "Sự kiện không xác định"
@@ -191,19 +233,16 @@ class VietnameseNLPProcessor:
         """Trích xuất địa điểm"""
         normalized_text = self.normalize_text(text)
         
-        # print(f"DEBUG extract_location input: '{normalized_text}'")
-        
         # Pattern cải tiến: lấy toàn bộ phần sau "ở/tại" cho đến khi gặp dấu phẩy hoặc từ khóa thời gian
         location_patterns = [
-            r'(?:ở|tại|o|tai)\s+([^,]*?)(?=\s*(,|\s+lúc|\s+vào|\s+nhắc|\s+nhac|\s*\d+\s*(giờ|h|gio)|\s*$))',
-            r'(?:ở|tại|o|tai)\s+([^,]*)'
+            r'(?:ở|tại|\bo|tai)\s+([^,]*?)(?=\s*(,|\s+lúc|\s+vào|\s+nhắc|\s+nhac|\s*\d+\s*(giờ|h|gio)|\s*$))',
+            r'(?:ở|tại|\bo|tai)\s+([^,]*)'
         ]
         
         for pattern in location_patterns:
             location_match = re.search(pattern, normalized_text)
             if location_match:
                 location = location_match.group(1).strip()
-                # print(f"DEBUG raw location found: '{location}'")
                 
                 # Làm sạch: loại bỏ các từ thừa nhưng GIỮ LẠI số phòng
                 # Chỉ loại bỏ nếu các từ này đứng RIÊNG LẺ ở cuối
@@ -211,64 +250,28 @@ class VietnameseNLPProcessor:
                 location = re.sub(r'\s+(lúc|vào|luc|vao).*$', '', location)  # QUAN TRỌNG: chỉ xóa nếu có từ khóa thời gian sau
                 location = location.strip()
                 
-                # print(f"DEBUG cleaned location: '{location}'")
-                
                 # Kiểm tra xem location có chứa thông tin hữu ích không
                 if location and len(location) > 1:
                     # Loại bỏ nếu location chỉ là số đơn thuần hoặc từ không có nghĩa
                     if (not re.match(r'^\d+$', location) and 
                         location not in ['sang', 'chieu', 'toi', 'sáng', 'chiều', 'tối']):
-                        # print(f"DEBUG final extracted location: '{location}'")
                         return location
-        
-        # print("DEBUG: No meaningful location found")
         return ""
     
     def parse_time(self, text):
-        """Phân tích thời gian"""
+        """Phân tích thời gian - Bổ sung hiểu ngày trong tuần"""
         normalized_text = self.normalize_text(text)
         now = datetime.now()
         
-        print(f"DEBUG parse_time input: '{normalized_text}'")
-        
-        # Xác định ngày
-        if any(word in normalized_text for word in ['mai', 'ngày mai']):
-            target_date = now + timedelta(days=1)
-            print("DEBUG: Target date is tomorrow")
-        elif any(word in normalized_text for word in ['nay', 'hôm nay']):
-            target_date = now
-            print("DEBUG: Target date is today")
-        else:
-            target_date = now
-            print("DEBUG: Target date is today (default)")
+        # Xác định ngày dựa trên các từ khóa đặc biệt
+        target_date = self.determine_target_date(normalized_text, now)
         
         # Tìm thời gian bắt đầu và kết thúc
         start_time = None
         end_time = None
         
         # Tìm tất cả các thời gian trong câu
-        all_times = []
-        
-        # Pattern để tìm tất cả thời gian
-        time_patterns = [
-            r'(?:lúc|vào|luc|vao)?\s*(\d+)\s*(sáng|chiều|tối|sang|chieu|toi)',
-            r'(\d+)\s*(giờ|h|gio)\s*(sáng|chiều|tối|sang|chieu|toi)?',
-            r'(\d+):(\d+)',
-            r'(\d+)\s*h\b'
-        ]
-        
-        for pattern in time_patterns:
-            matches = re.finditer(pattern, normalized_text)
-            for match in matches:
-                hour, minute = self.extract_hour_minute(match)
-                if hour is not None:
-                    all_times.append({
-                        'hour': hour,
-                        'minute': minute,
-                        'position': match.start(),
-                        'text': match.group()
-                    })
-                    print(f"DEBUG found time: {hour}:{minute} at position {match.start()}")
+        all_times = self.find_all_times(normalized_text)
         
         # Sắp xếp theo vị trí trong câu
         all_times.sort(key=lambda x: x['position'])
@@ -278,9 +281,9 @@ class VietnameseNLPProcessor:
             first_time = all_times[0]
             try:
                 start_time = target_date.replace(hour=first_time['hour'], minute=first_time['minute'], second=0, microsecond=0)
-                if start_time < now and 'mai' not in normalized_text:
+                # Nếu thời gian đã qua và không phải là ngày đặc biệt, chuyển sang ngày mai
+                if start_time < now and not self.is_special_date_keyword(normalized_text):
                     start_time += timedelta(days=1)
-                print(f"DEBUG start_time: {start_time}")
             except ValueError:
                 start_time = target_date.replace(hour=9, minute=0, second=0, microsecond=0)
         
@@ -294,52 +297,155 @@ class VietnameseNLPProcessor:
                 # Đảm bảo end_time không nhỏ hơn start_time
                 if start_time and end_time <= start_time:
                     end_time = end_time.replace(hour=end_time.hour + 12)
-                print(f"DEBUG end_time: {end_time}")
             except ValueError:
                 pass
         else:
             # KHÔNG có thời gian kết thúc rõ ràng
             end_time = None
-            print("DEBUG: No clear end time keyword found, setting end_time to None")
         
         # Nếu không tìm thấy start_time, dùng mặc định
         if not start_time:
             start_time = target_date.replace(hour=9, minute=0, second=0, microsecond=0)
         
         return start_time, end_time
+
+    def determine_target_date(self, text, now):
+        """Xác định ngày mục tiêu dựa trên từ khóa"""
+        # Ngày trong tuần
+        weekday_map = {
+            'thứ 2': 0, 'thứ hai': 0, 
+            'thứ 3': 1, 'thứ ba': 1, 
+            'thứ 4': 2, 'thứ tư': 2, 
+            'thứ 5': 3, 'thứ năm': 3, 
+            'thứ 6': 4, 'thứ sáu': 4, 
+            'thứ 7': 5, 'thứ bảy': 5,
+            'chủ nhật': 6, 'cn': 6 
+        }
+        
+        current_weekday = now.weekday()
+        
+        # Kiểm tra các trường hợp đặc biệt
+        for keyword, target_weekday in weekday_map.items():
+            if keyword in text:
+                days_ahead = target_weekday - current_weekday
+                # Kiểm tra "tuần tới", "tuần sau"
+                if any(word in text for word in ['tuần sau', 'tuan sau']):
+                    days_ahead += 7
+                if any(word in text for word in ['tuần tới',  'tuan toi']):
+                    days_ahead += 14
+                
+                return now + timedelta(days=days_ahead)
+        
+        # Cuối tuần (thứ 7 hoặc chủ nhật tuần này)
+        if any(word in text for word in ['cuối tuần', 'cuoi tuan']):
+            days_to_saturday = 5 - current_weekday  # Thứ 7 = 5
+            if days_to_saturday < 0:
+                days_to_saturday += 7
+            return now + timedelta(days=days_to_saturday)
+        
+        # Đầu tuần (thứ 2 tuần này hoặc tuần sau)
+        if any(word in text for word in ['đầu tuần', 'dau tuan']):
+            days_to_monday = 0 - current_weekday  # Thứ 2 = 0
+            if days_to_monday <= 0:
+                days_to_monday += 7
+            return now + timedelta(days=days_to_monday)
+        
+        # Giữa tuần (thứ 3, 4, 5)
+        if any(word in text for word in ['giữa tuần', 'giua tuan']):
+            # Mặc định là thứ 4
+            days_to_wednesday = 2 - current_weekday  # Thứ 4 = 2
+            if days_to_wednesday <= 0:
+                days_to_wednesday += 7
+            return now + timedelta(days=days_to_wednesday)
+        
+        # Ngày mai
+        if any(word in text for word in ['mai', 'ngày mai']):
+            return now + timedelta(days=1)
+        
+        if any(word in text for word in ['ngày kia']):
+            return now + timedelta(days=2)
+        
+        # Hôm nay
+        if any(word in text for word in ['nay', 'hôm nay']):
+            return now
+        
+        # Mặc định là hôm nay
+        return now
+
+    def find_all_times(self, text):
+        """Tìm tất cả các thời gian trong câu"""
+        all_times = []
+        
+        # Pattern để tìm tất cả thời gian - THÊM PATTERN MỚI
+        time_patterns = [
+            r'(?:lúc|vào|luc|vao)?\s*(\d+)\s*(sáng|chiều|tối|sang|chieu|toi)',
+            r'(\d+)\s*(giờ|h|gio)\s*(sáng|chiều|tối|sang|chieu|toi)?',
+            r'(\d+):(\d+)',
+            r'(\d+)\s*h\b'
+        ]
+        
+        for pattern in time_patterns:
+            matches = re.finditer(pattern, text)
+            for match in matches:
+                hour, minute = self.extract_hour_minute(match)
+                if hour is not None:
+                    all_times.append({
+                        'hour': hour,
+                        'minute': minute,
+                        'position': match.start(),
+                        'text': match.group(),
+                        'pattern': pattern
+                    })
+        
+        return all_times
+
+    def is_special_date_keyword(self, text):
+        """Kiểm tra xem có từ khóa ngày đặc biệt không"""
+        special_keywords = [
+            'thứ 2', 'thứ hai', 'thứ 3', 'thứ ba', 'thứ 4', 'thứ tư', 'thứ 5', 'thứ năm',
+            'thứ 6', 'thứ sáu', 'thứ 7', 'thứ bảy', 'chủ nhật', 'cn',
+            'cuối tuần', 'cuoi tuan', 'đầu tuần', 'dau tuan', 'giữa tuần', 'giua tuan',
+            'tuần tới', 'tuần sau', 'tuan toi', 'tuan sau'
+        ]
+        
+        return any(keyword in text for keyword in special_keywords)
     
     def extract_hour_minute(self, match):
-        """Trích xuất giờ và phút từ match object - FIXED VERSION"""
+        """Trích xuất giờ và phút từ match object - FIXED"""
         hour, minute = None, 0
         
         if match:
             groups = match.groups()
-            print(f"DEBUG extract_hour_minute groups: {groups}")
             
-            # Pattern 2: "10:30" - PHẢI KIỂM TRA TRƯỚC
-            # Kiểm tra xem có phải định dạng giờ:phút không
+            # Pattern 1: "10:30"
             if len(groups) >= 2 and groups[0] and groups[0].isdigit() and groups[1] and groups[1].isdigit():
-                # QUAN TRỌNG: Kiểm tra pattern gốc có chứa dấu ':' không
                 if ':' in match.group():
                     hour = int(groups[0])
                     minute = int(groups[1])
-                    print(f"DEBUG detected time format: {hour}:{minute}")
+                    # Kiểm tra giờ hợp lệ (0-23)
+                    if 0 <= hour <= 23:
+                        return hour, minute
+                    return None, 0
             
-            # Pattern 1: "10 sáng" hoặc "lúc 10 sáng"
+            # Pattern 2: "10 sáng" 
             elif len(groups) >= 2 and groups[0] and groups[0].isdigit():
                 hour = int(groups[0])
                 if len(groups) >= 2 and groups[1] and groups[1] in ['sáng', 'chiều', 'tối', 'sang', 'chieu', 'toi']:
+                    # KIỂM TRA: "30 sáng" là không hợp lệ (giờ không thể là 30)
+                    if hour > 12:  # Giờ không hợp lệ cho pattern này
+                        return None, 0
                     period = groups[1]
                     hour = self.adjust_hour_for_period(hour, period)
+                    return hour, minute
             
-            # Pattern 3: "10 giờ" hoặc "10h"
+            # Pattern 3: "10 giờ"
             elif len(groups) >= 1 and groups[0] and groups[0].isdigit():
                 hour = int(groups[0])
                 if len(groups) >= 3 and groups[2] and groups[2] in ['sáng', 'chiều', 'tối', 'sang', 'chieu', 'toi']:
                     period = groups[2]
                     hour = self.adjust_hour_for_period(hour, period)
+                    return hour, minute
         
-        print(f"DEBUG extract_hour_minute result: {hour}:{minute}")
         return hour, minute
     
     def adjust_hour_for_period(self, hour, period):
@@ -355,26 +461,19 @@ class VietnameseNLPProcessor:
     def process_text(self, text):
         """Xử lý toàn bộ văn bản"""
         try:
-            print(f"\n=== PROCESSING: '{text}' ===")
-            
             # Component 1: Preprocessing
             processed_text = self.preprocess_text(text)
             print(f"After preprocessing: '{processed_text}'")
             
             # Component 2: Trích xuất thông tin
             event_name = self.extract_event_name(processed_text)
-            print(f"Event name: '{event_name}'")
             
             location = self.extract_location(processed_text)
-            print(f"Location: '{location}'")
             
             reminder_minutes = self.extract_reminder_minutes(processed_text)
-            print(f"Reminder minutes: {reminder_minutes}")
             
             # Component 3: Phân tích thời gian
             start_time, end_time = self.parse_time(processed_text)
-            print(f"Start time: {start_time}")
-            print(f"End time: {end_time}")
             
             # Component 4: Hợp nhất kết quả
             result = {
@@ -384,12 +483,9 @@ class VietnameseNLPProcessor:
                 "location": location,
                 "reminder_minutes": reminder_minutes
             }
-            
-            print(f"=== FINAL RESULT: {result} ===\n")
             return result
             
         except Exception as e:
-            print(f"ERROR: {e}")
             return {"error": f"Lỗi xử lý: {str(e)}"}
 
 class DatabaseManager:
@@ -637,10 +733,44 @@ class ScheduleApp:
     def test_nlp(self):
         """Test chức năng NLP với câu mẫu"""
         test_cases = [
-            "nhắc tôi họp nhóm lúc 10h sáng mai và kết thúc lúc 12:30 ở phòng 302, nhắc trước 15 phút",
-            "nhac toi hop nhom luc 10 gio sang mai va ket thuc luc 12h o phong 302, nhac truoc 15 phut",
-            "nhắc tôi họp công ty tại tầng 5 lúc 9:30 sáng mai, nhắc trước 20 phút",
-            "nhắc tôi họp công ty lúc 9:30 sáng mai tại tầng 5, nhắc trước 20 phút",
+            # 5 test case gốc (có lời nhắc)
+            "nhắc tôi họp nhóm lúc 10 giờ sáng mai ở phòng 302, nhắc trước 15 phút",
+            "nhac toi hop nhom luc 10 gio 30 sáng mai va ket thuc luc 12h o phong 302, nhac truoc 15 phut",
+            "nhắc tôi họp công ty lúc 10:30 thứ 2 tuần tới tại tầng trệt , nhắc trước 20 p",
+            "nhắc tôi họp công ty lúc 10:30 chủ nhật tuần sau tại tầng trệt , nhắc trước 20 p",
+            "nhắc tôi họp công ty lúc 9:30 cuối tuần tại tầng 5, nhắc trước 20 phút",
+            
+            # 30 test case mới (một số có lời nhắc, một số không dấu)
+            "Nhắc tôi họp lúc 8h30 sáng mai tại văn phòng, nhắc trước 30 phút",
+            "Nhắc tôi gọi điện cho khách hàng lúc 15 giờ ngày mai.",
+            "Nhac toi hop luc 10:00 thu Ba tuan sau, nhac truoc 1 gio",
+            "Nhắc tôi đi tập thể dục lúc 6 giờ sáng thứ Tư này.",
+            "Nhac toi nop bao cao luc 17h thu Sau, nhac truoc 2 gio", 
+            "Nhắc tôi họp nhóm lúc 14h30 chiều mai.",
+            "Nhắc tôi đón con lúc 11:45 trưa mai, nhắc trước 15 phút",
+            "Gap doi tac luc 9 gio sang thu Hai toi", 
+            "Nhắc tôi họp công ty lúc 13:00 ngày kia, nhắc trước 45 phút",
+            "Di kham benh luc 8 gio 15 phut sang thu Bay", 
+            "Nhắc tôi họp online lúc 20:00 tối nay, nhắc trước 10 phút",
+            "Nhắc tôi học bài lúc 19h30 tối thứ Năm.",
+            "Hop luc 10 gio sang cuoi tuan, nhac truoc 30 phut", 
+            "Nhắc tôi gửi email lúc 16h45 chiều thứ Tư.",
+            "Nhắc tôi họp lúc 9:00 sáng chủ nhật tuần này, nhắc trước 1 giờ",
+            "Di sieu thi luc 10 gio 30 sang thu Bay", 
+            "Nhắc tôi họp lúc 11h trưa mai, nhắc trước 20 phút",
+            "Goi cho sep luc 15:30 chieu thu Sau", 
+            "Nhắc tôi họp tổng kết lúc 14 giờ ngày mai, nhắc trước 1 giờ",
+            "Dam cuoi luc 17:00 thu Bay tuan sau", 
+            "Nhắc tôi họp lúc 8 giờ sáng thứ Hai tuần tới, nhắc trước 25 phút",
+            "Gap ban luc 18h30 toi thu Tu", 
+            "Nhắc tôi họp lúc 7:45 sáng mai, nhắc trước 15 phút",
+            "Nop bai luc 23:59 toi chu nhat", 
+            "Nhắc tôi họp lúc 12:00 trưa thứ Năm, nhắc trước 30 phút",
+            "Don nha luc 9 gio sang thu Bay", 
+            "Nhắc tôi họp lúc 10h30 sáng thứ Hai tuần này, nhắc trước 40 phút",
+            "Goi dien thoai luc 21:00 toi mai", 
+            "Nhắc tôi họp lúc 16 giờ chiều cuối tuần, nhắc trước 1 giờ",
+            "Di may bay luc 6:00 sang thu Sau tuan toi" 
         ]
         
         print("\n" + "="*60)
