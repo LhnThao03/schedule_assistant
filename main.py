@@ -8,8 +8,6 @@ from underthesea import word_tokenize, ner
 from datetime import datetime, timedelta
 import re
 import unicodedata
-import os
-import sys
 
 class VietnameseNLPProcessor:
     """Bộ xử lý NLP tiếng Việt"""
@@ -463,7 +461,6 @@ class VietnameseNLPProcessor:
         try:
             # Component 1: Preprocessing
             processed_text = self.preprocess_text(text)
-            print(f"After preprocessing: '{processed_text}'")
             
             # Component 2: Trích xuất thông tin
             event_name = self.extract_event_name(processed_text)
@@ -629,16 +626,42 @@ class ReminderSystem:
                 
                 time.sleep(60)
             except Exception as e:
-                print(f"Lỗi hệ thống nhắc nhở: {e}")
                 time.sleep(60)
 
 class ScheduleApp:
-    """Ứng dụng quản lý lịch trình chính"""
+    """Ứng dụng quản lý lịch trình chính với giao diện hiện đại"""
     
     def __init__(self, root):
         self.root = root
-        self.root.title("Personal Schedule Assistant - Trợ lý Lịch trình Cá nhân")
-        self.root.geometry("1200x800")  # Tăng kích thước để chứa thêm cột
+        self.root.title("✨ Personal Schedule Assistant ✨")
+        self.root.geometry("1400x900")
+
+        screen_width = root.winfo_screenwidth()
+        screen_height = root.winfo_screenheight()
+        
+        window_width = 1400
+        window_height = 900
+        
+        x = (screen_width - window_width) // 2
+        y = (screen_height - window_height) // 2
+        
+        self.root.geometry(f'{window_width}x{window_height}+{x}+{y}')
+        
+        # Thiết lập màu sắc
+        self.colors = {
+            'primary': '#2c3e50',
+            'secondary': '#3498db',
+            'accent': '#e74c3c',
+            'success': '#2ecc71',
+            'light': '#ecf0f1',
+            'dark': '#34495e',
+            'calendar_bg': '#ffffff',
+            'event_bg': '#3498db',
+            'today_bg': '#f1c40f'
+        }
+        
+        # Cài đặt style
+        self.setup_styles()
         
         self.nlp_processor = VietnameseNLPProcessor()
         self.db_manager = DatabaseManager()
@@ -647,51 +670,207 @@ class ScheduleApp:
         self.setup_gui()
         self.reminder_system.start()
         self.load_events()
+        self.update_calendar()
+    
+    def setup_styles(self):
+        """Cấu hình styles cho giao diện"""
+        style = ttk.Style()
+        style.theme_use('clam')
+        
+        # Cấu hình các style tùy chỉnh
+        style.configure('Primary.TButton', 
+                       font=('Segoe UI', 10, 'bold'),
+                       padding=6,
+                       background=self.colors['secondary'])
+        style.configure('Secondary.TButton',
+                       font=('Segoe UI', 10),
+                       padding=5)
+        style.configure('Title.TLabel',
+                       font=('Segoe UI', 18, 'bold'),
+                       foreground=self.colors['primary'])
+        style.configure('Subtitle.TLabel',
+                       font=('Segoe UI', 12, 'bold'),
+                       foreground=self.colors['dark'])
+        style.configure('Card.TLabelframe',
+                       borderwidth=2,
+                       relief='groove',
+                       padding=10)
+        style.configure('Card.TLabelframe.Label',
+                       font=('Segoe UI', 11, 'bold'),
+                       foreground=self.colors['primary'])
     
     def setup_gui(self):
-        main_frame = ttk.Frame(self.root, padding="10")
-        main_frame.grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
+        # Tạo main container
+        main_container = ttk.Frame(self.root, padding="0")
+        main_container.pack(fill=tk.BOTH, expand=True)
         
-        self.root.columnconfigure(0, weight=1)
-        self.root.rowconfigure(0, weight=1)
-        main_frame.columnconfigure(1, weight=1)
-        main_frame.rowconfigure(3, weight=1)
+        # ==================== HEADER ====================
+        header_frame = tk.Frame(main_container, bg=self.colors['primary'], height=80)
+        header_frame.pack(fill=tk.X, side=tk.TOP)
+        header_frame.pack_propagate(False)
         
-        title_label = ttk.Label(main_frame, text="TRỢ LÝ LỊCH TRÌNH CÁ NHÂN", 
-                               font=("Arial", 16, "bold"))
-        title_label.grid(row=0, column=0, columnspan=3, pady=(0, 20))
+        # Logo và tiêu đề
+        logo_frame = tk.Frame(header_frame, bg=self.colors['primary'])
+        logo_frame.pack(side=tk.LEFT, padx=20)
         
-        input_label = ttk.Label(main_frame, text="Nhập yêu cầu bằng tiếng Việt:")
-        input_label.grid(row=1, column=0, sticky=tk.W, pady=(0, 5))
+        title_label = tk.Label(logo_frame, 
+                              text="📅 Personal Schedule Assistant", 
+                              font=('Segoe UI', 20, 'bold'),
+                              bg=self.colors['primary'],
+                              fg='white')
+        title_label.pack(side=tk.LEFT)
         
-        self.input_text = tk.Text(main_frame, height=3, width=80)
-        self.input_text.grid(row=1, column=1, columnspan=2, sticky=(tk.W, tk.E), pady=(0, 10))
+        subtitle_label = tk.Label(logo_frame,
+                                 text="Trợ lý lịch trình thông minh",
+                                 font=('Segoe UI', 11),
+                                 bg=self.colors['primary'],
+                                 fg=self.colors['light'])
+        subtitle_label.pack(side=tk.LEFT, padx=(10, 0))
         
-        self.add_button = ttk.Button(main_frame, text="Thêm sự kiện", command=self.add_event_from_text)
-        self.add_button.grid(row=2, column=0, pady=(0, 10))
+        # Status label trên header
+        self.status_var = tk.StringVar()
+        self.status_var.set("🟢 Sẵn sàng")
+        status_label = tk.Label(header_frame,
+                               textvariable=self.status_var,
+                               font=('Segoe UI', 10),
+                               bg=self.colors['primary'],
+                               fg='white')
+        status_label.pack(side=tk.RIGHT, padx=20)
         
-        search_frame = ttk.Frame(main_frame)
-        search_frame.grid(row=2, column=1, columnspan=2, sticky=(tk.W, tk.E), pady=(0, 10))
+        # ==================== MAIN CONTENT ====================
+        content_frame = ttk.Frame(main_container)
+        content_frame.pack(fill=tk.BOTH, expand=True, padx=20, pady=20)
         
-        search_label = ttk.Label(search_frame, text="Tìm kiếm:")
-        search_label.pack(side=tk.LEFT, padx=(0, 5))
+        # ===== LEFT PANEL: Nhập liệu và Lịch =====
+        left_panel = ttk.Frame(content_frame, width=400)
+        left_panel.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
         
-        self.search_entry = ttk.Entry(search_frame, width=30)
-        self.search_entry.pack(side=tk.LEFT, fill=tk.X, expand=True)
+        # --- Nhập sự kiện ---
+        input_card = ttk.LabelFrame(left_panel, text="➕ Thêm sự kiện mới", padding=15)
+        input_card.pack(fill=tk.X, pady=(0, 15))
         
-        self.search_button = ttk.Button(search_frame, text="Tìm", command=self.search_events)
-        self.search_button.pack(side=tk.LEFT, padx=(5, 0))
+        # Hướng dẫn
+        guide_label = ttk.Label(input_card,
+                               text="Nhập yêu cầu bằng tiếng Việt tự nhiên:",
+                               font=('Segoe UI', 10))
+        guide_label.pack(anchor=tk.W, pady=(0, 10))
         
-        # Cập nhật columns để thêm "Thời gian kết thúc"
+        # Ví dụ
+        example_text = "Ví dụ: 'họp lúc 10h sáng mai tại phòng 302, nhắc trước 15 phút'"
+        example_label = ttk.Label(input_card,
+                                 text=example_text,
+                                 font=('Segoe UI', 9, 'italic'),
+                                 foreground='#666')
+        example_label.pack(anchor=tk.W, pady=(0, 10))
+        
+        # Ô nhập văn bản với scrollbar
+        input_container = ttk.Frame(input_card)
+        input_container.pack(fill=tk.BOTH, expand=True, pady=(0, 10))
+        
+        self.input_text = tk.Text(input_container,
+                                 height=4,
+                                 font=('Segoe UI', 10),
+                                 wrap=tk.WORD,
+                                 bg='white',
+                                 relief=tk.SOLID,
+                                 borderwidth=1)
+        self.input_text.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        
+        text_scrollbar = ttk.Scrollbar(input_container, command=self.input_text.yview)
+        text_scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+        self.input_text.configure(yscrollcommand=text_scrollbar.set)
+        
+        # Nút Thêm sự kiện
+        button_container = ttk.Frame(input_card)
+        button_container.pack(fill=tk.X)
+        
+        self.add_button = ttk.Button(button_container,
+                                    text="🎯 Thêm sự kiện",
+                                    command=self.add_event_from_text,
+                                    style='Primary.TButton')
+        self.add_button.pack(side=tk.LEFT, pady=(5, 0))
+        
+        # Nút Test NLP
+        # self.test_button = ttk.Button(button_container,
+        #                              text="🧪 Test NLP",
+        #                              command=self.test_nlp,
+        #                              style='Secondary.TButton')
+        # self.test_button.pack(side=tk.LEFT, padx=(10, 0), pady=(5, 0))
+        
+        # --- Tìm kiếm ---
+        search_card = ttk.LabelFrame(left_panel, text="🔍 Tìm kiếm sự kiện", padding=15)
+        search_card.pack(fill=tk.X, pady=(0, 15))
+        
+        search_frame = ttk.Frame(search_card)
+        search_frame.pack(fill=tk.X)
+        
+        self.search_entry = ttk.Entry(search_frame,
+                                     font=('Segoe UI', 10))
+        self.search_entry.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(0, 10))
+        
+        self.search_button = ttk.Button(search_frame,
+                                       text="Tìm",
+                                       command=self.search_events,
+                                       style='Primary.TButton')
+        self.search_button.pack(side=tk.RIGHT)
+        
+        # --- Lịch sự kiện ---
+        calendar_card = ttk.LabelFrame(left_panel, text="📅 Lịch sự kiện (7 ngày tới)", padding=15)
+        calendar_card.pack(fill=tk.BOTH, expand=True)
+        
+        # Container cho calendar với scrollbar
+        calendar_container = ttk.Frame(calendar_card)
+        calendar_container.pack(fill=tk.BOTH, expand=True)
+        
+        # Canvas cho calendar
+        self.calendar_canvas = tk.Canvas(calendar_container,
+                                        bg='white',
+                                        highlightthickness=0)
+        scrollbar = ttk.Scrollbar(calendar_container,
+                                 orient="horizontal",
+                                 command=self.calendar_canvas.xview)
+        
+        self.calendar_canvas.configure(xscrollcommand=scrollbar.set)
+        
+        scrollbar.pack(side=tk.BOTTOM, fill=tk.X)
+        self.calendar_canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        
+        # Frame bên trong canvas
+        self.calendar_inner_frame = ttk.Frame(self.calendar_canvas)
+        self.calendar_window = self.calendar_canvas.create_window((0, 0),
+                                                                 window=self.calendar_inner_frame,
+                                                                 anchor="nw")
+        
+        # ===== RIGHT PANEL: Danh sách sự kiện =====
+        right_panel = ttk.Frame(content_frame, width=800)
+        right_panel.pack(side=tk.RIGHT, fill=tk.BOTH, expand=True, padx=(20, 0))
+        
+        # --- Danh sách sự kiện ---
+        list_card = ttk.LabelFrame(right_panel, text="📋 Danh sách sự kiện", padding=15)
+        list_card.pack(fill=tk.BOTH, expand=True)
+        
+        # Container cho treeview
+        tree_container = ttk.Frame(list_card)
+        tree_container.pack(fill=tk.BOTH, expand=True)
+        
+        # Tạo Treeview với style
+        style = ttk.Style()
+        style.configure("Treeview",
+                       font=('Segoe UI', 10),
+                       rowheight=25)
+        style.configure("Treeview.Heading",
+                       font=('Segoe UI', 11, 'bold'),
+                       background=self.colors['light'])
+        
         columns = ("ID", "Sự kiện", "Thời gian bắt đầu", "Thời gian kết thúc", "Địa điểm", "Nhắc nhở")
-        self.tree = ttk.Treeview(main_frame, columns=columns, show="headings", height=15)
+        self.tree = ttk.Treeview(tree_container, columns=columns, show="headings", height=15)
         
         # Định nghĩa kích thước các cột
         column_widths = {
             "ID": 50,
-            "Sự kiện": 200,
-            "Thời gian bắt đầu": 150,
-            "Thời gian kết thúc": 150,
+            "Sự kiện": 150,
+            "Thời gian bắt đầu": 160,
+            "Thời gian kết thúc": 160,
             "Địa điểm": 150,
             "Nhắc nhở": 100
         }
@@ -700,35 +879,265 @@ class ScheduleApp:
             self.tree.heading(col, text=col)
             self.tree.column(col, width=column_widths.get(col, 100))
         
-        self.tree.grid(row=3, column=0, columnspan=3, sticky=(tk.W, tk.E, tk.N, tk.S), pady=(0, 10))
+        # Thêm scrollbars
+        v_scrollbar = ttk.Scrollbar(tree_container, orient=tk.VERTICAL, command=self.tree.yview)
+        h_scrollbar = ttk.Scrollbar(tree_container, orient=tk.HORIZONTAL, command=self.tree.xview)
         
-        scrollbar = ttk.Scrollbar(main_frame, orient=tk.VERTICAL, command=self.tree.yview)
-        scrollbar.grid(row=3, column=3, sticky=(tk.N, tk.S))
-        self.tree.configure(yscrollcommand=scrollbar.set)
+        self.tree.configure(yscrollcommand=v_scrollbar.set, xscrollcommand=h_scrollbar.set)
         
-        button_frame = ttk.Frame(main_frame)
-        button_frame.grid(row=4, column=0, columnspan=3, pady=10)
+        self.tree.grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
+        v_scrollbar.grid(row=0, column=1, sticky=(tk.N, tk.S))
+        h_scrollbar.grid(row=1, column=0, sticky=(tk.W, tk.E))
         
-        self.edit_button = ttk.Button(button_frame, text="Sửa", command=self.edit_event)
-        self.edit_button.pack(side=tk.LEFT, padx=5)
+        tree_container.columnconfigure(0, weight=1)
+        tree_container.rowconfigure(0, weight=1)
         
-        self.delete_button = ttk.Button(button_frame, text="Xóa", command=self.delete_event)
-        self.delete_button.pack(side=tk.LEFT, padx=5)
+        # --- Panel nút chức năng ---
+        button_panel = ttk.Frame(right_panel)
+        button_panel.pack(fill=tk.X, pady=(15, 0))
         
-        self.refresh_button = ttk.Button(button_frame, text="Làm mới", command=self.load_events)
-        self.refresh_button.pack(side=tk.LEFT, padx=5)
+        # Các nút chức năng
+        buttons = [
+            ("✏️ Sửa", self.edit_event, 'Secondary.TButton'),
+            ("🗑️ Xóa", self.delete_event, 'Secondary.TButton'),
+            ("📤 Xuất JSON", self.export_events, 'Secondary.TButton'),
+            ("🔄 Làm mới", self.refresh_all, 'Primary.TButton'),
+        ]
         
-        self.export_button = ttk.Button(button_frame, text="Xuất JSON", command=self.export_events)
-        self.export_button.pack(side=tk.LEFT, padx=5)
+        for text, command, style_name in buttons:
+            btn = ttk.Button(button_panel,
+                            text=text,
+                            command=command,
+                            style=style_name)
+            btn.pack(side=tk.LEFT, padx=(0, 10))
         
-        # Nút test NLP
-        self.test_button = ttk.Button(button_frame, text="Test NLP", command=self.test_nlp)
-        self.test_button.pack(side=tk.LEFT, padx=5)
+        # ==================== FOOTER ====================
+        footer_frame = tk.Frame(main_container, bg=self.colors['light'], height=30)
+        footer_frame.pack(fill=tk.X, side=tk.BOTTOM)
+        footer_frame.pack_propagate(False)
         
-        self.status_var = tk.StringVar()
-        self.status_var.set("Sẵn sàng")
-        status_label = ttk.Label(main_frame, textvariable=self.status_var)
-        status_label.grid(row=5, column=0, columnspan=3, sticky=tk.W)
+        footer_label = tk.Label(footer_frame,
+                               text="© 2024 Personal Schedule Assistant | Trợ lý lịch trình thông minh",
+                               font=('Segoe UI', 9),
+                               bg=self.colors['light'],
+                               fg=self.colors['dark'])
+        footer_label.pack(pady=5)
+        
+        # ==================== BIND EVENTS ====================
+        self.calendar_inner_frame.bind("<Configure>", self.on_calendar_configure)
+        self.calendar_canvas.bind("<Configure>", self.on_canvas_configure)
+        
+        # Bind Enter key cho tìm kiếm
+        self.search_entry.bind('<Return>', lambda e: self.search_events())
+    
+    def on_calendar_configure(self, event):
+        """Cập nhật scrollregion khi calendar thay đổi kích thước"""
+        self.calendar_canvas.configure(scrollregion=self.calendar_canvas.bbox("all"))
+    
+    def on_canvas_configure(self, event):
+        """Cập nhật kích thước của inner frame khi canvas thay đổi"""
+        self.calendar_canvas.itemconfig(self.calendar_window, width=event.width)
+    
+    def update_calendar(self):
+        """Cập nhật bảng lịch với thiết kế đẹp"""
+        # Xóa các widget cũ
+        for widget in self.calendar_inner_frame.winfo_children():
+            widget.destroy()
+        
+        # Lấy ngày hiện tại
+        today = datetime.now()
+        
+        # Tạo mảng 7 ngày tới
+        days = []
+        for i in range(7):
+            current_day = today + timedelta(days=i)
+            days.append(current_day)
+        
+        # Tạo header cho calendar
+        for i, day in enumerate(days):
+            is_today = (day.date() == today.date())
+            
+            # Tạo frame cho mỗi ngày
+            day_frame = tk.Frame(self.calendar_inner_frame,
+                                bg='#f8f9fa' if not is_today else '#fff3cd',
+                                relief=tk.RAISED,
+                                borderwidth=1)
+            day_frame.grid(row=0, column=i, sticky=(tk.W, tk.E, tk.N, tk.S), padx=2, pady=2)
+            
+            # Header ngày
+            header_bg = '#e9ecef' if not is_today else '#ffc107'
+            header_frame = tk.Frame(day_frame, bg=header_bg, height=44)
+            header_frame.pack(fill=tk.X)
+            header_frame.pack_propagate(False)
+            
+            # Ngày và thứ
+            day_label = tk.Label(header_frame,
+                                text=day.strftime("%d\n%b"),
+                                font=('Segoe UI', 11, 'bold'),
+                                bg=header_bg)
+            day_label.pack(side=tk.LEFT, padx=10, pady=5)
+            
+            # Thứ trong tuần
+            weekday_label = tk.Label(header_frame,
+                                    text=day.strftime("(%A)"),
+                                    font=('Segoe UI', 9),
+                                    bg=header_bg,
+                                    fg='#666')
+            weekday_label.pack(side=tk.LEFT, pady=5)
+            
+            # Đánh dấu hôm nay
+            if is_today:
+                today_label = tk.Label(header_frame,
+                                      text="NOW",
+                                      font=('Segoe UI', 8, 'bold'),
+                                      bg='#dc3545',
+                                      fg='white')
+                today_label.pack(side=tk.RIGHT, padx=5, pady=2)
+            
+            # Nội dung sự kiện
+            content_frame = tk.Frame(day_frame, bg='white')
+            content_frame.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
+        
+        # Lấy tất cả sự kiện
+        events = self.db_manager.get_events()
+        
+        # Nhóm sự kiện theo ngày
+        for i, day in enumerate(days):
+            # Lấy content_frame cho ngày này
+            day_widget = self.calendar_inner_frame.grid_slaves(row=0, column=i)[0]
+            content_frame = day_widget.winfo_children()[1]  # Lấy content_frame
+            
+            # Đếm sự kiện cho ngày này
+            day_events = []
+            for event in events:
+                event_id, event_name, start_time_str, end_time_str, location, reminder_minutes, created_at = event
+                start_time = datetime.fromisoformat(start_time_str)
+                
+                if start_time.date() == day.date():
+                    day_events.append((event_id, event_name, start_time, location))
+            
+            # Sắp xếp sự kiện theo thời gian
+            day_events.sort(key=lambda x: x[2])
+            
+            # Hiển thị các sự kiện
+            for idx, (event_id, event_name, start_time, location) in enumerate(day_events[:5]):  # Tối đa 5 sự kiện
+                event_color = self.get_event_color(idx)
+                
+                event_frame = tk.Frame(content_frame,
+                                      bg=event_color,
+                                      relief=tk.RAISED,
+                                      borderwidth=1)
+                event_frame.pack(fill=tk.X, pady=2)
+                
+                # Thời gian
+                time_label = tk.Label(event_frame,
+                                     text=start_time.strftime("%H:%M"),
+                                     font=('Segoe UI', 9, 'bold'),
+                                     bg=event_color,
+                                     width=6)
+                time_label.pack(side=tk.LEFT, padx=5, pady=2)
+                
+                # Tên sự kiện
+                name_label = tk.Label(event_frame,
+                                     text=event_name[:20] + ('...' if len(event_name) > 20 else ''),
+                                     font=('Segoe UI', 9),
+                                     bg=event_color,
+                                     anchor='w')
+                name_label.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=5, pady=2)
+                
+                # Bind click event
+                event_frame.bind("<Button-1>", lambda e, ev_id=event_id: self.highlight_event(ev_id))
+                time_label.bind("<Button-1>", lambda e, ev_id=event_id: self.highlight_event(ev_id))
+                name_label.bind("<Button-1>", lambda e, ev_id=event_id: self.highlight_event(ev_id))
+                
+                # Tooltip
+                tooltip_text = f"{event_name}\n⏰ {start_time.strftime('%H:%M')}\n📍 {location}"
+                self.create_tooltip(event_frame, tooltip_text)
+            
+            # Nếu có nhiều hơn 5 sự kiện, hiển thị thông báo
+            if len(day_events) > 5:
+                more_label = tk.Label(content_frame,
+                                     text=f"... và {len(day_events)-5} sự kiện khác",
+                                     font=('Segoe UI', 8, 'italic'),
+                                     fg='#666',
+                                     bg='white')
+                more_label.pack(pady=2)
+        
+        # Cấu hình grid
+        for i in range(7):
+            self.calendar_inner_frame.columnconfigure(i, weight=1)
+    
+    def get_event_color(self, index):
+        """Lấy màu cho sự kiện dựa trên index"""
+        colors = [
+            '#3498db',  # Blue
+            '#2ecc71',  # Green
+            '#e74c3c',  # Red
+            '#f39c12',  # Orange
+            '#9b59b6',  # Purple
+            '#1abc9c',  # Turquoise
+            '#d35400',  # Pumpkin
+        ]
+        return colors[index % len(colors)]
+    
+    def create_tooltip(self, widget, text):
+        """Tạo tooltip đẹp cho widget"""
+        def show_tooltip(event):
+            x, y, _, _ = widget.bbox("insert")
+            x += widget.winfo_rootx() + 25
+            y += widget.winfo_rooty() + 25
+            
+            # Tạo tooltip window
+            self.tooltip = tk.Toplevel(widget)
+            self.tooltip.wm_overrideredirect(True)
+            self.tooltip.wm_geometry(f"+{x}+{y}")
+            
+            # Tạo tooltip content
+            tooltip_frame = tk.Frame(self.tooltip,
+                                    bg='#333',
+                                    relief=tk.SOLID,
+                                    borderwidth=1)
+            tooltip_frame.pack()
+            
+            tooltip_label = tk.Label(tooltip_frame,
+                                    text=text,
+                                    font=('Segoe UI', 9),
+                                    bg='#333',
+                                    fg='white',
+                                    padx=10,
+                                    pady=5,
+                                    justify=tk.LEFT)
+            tooltip_label.pack()
+        
+        def hide_tooltip(event):
+            if hasattr(self, 'tooltip'):
+                self.tooltip.destroy()
+                delattr(self, 'tooltip')
+        
+        widget.bind("<Enter>", show_tooltip)
+        widget.bind("<Leave>", hide_tooltip)
+    
+    def highlight_event(self, event_id):
+        """Highlight sự kiện trong danh sách"""
+        for item in self.tree.get_children():
+            if self.tree.item(item, "values")[0] == str(event_id):
+                self.tree.selection_remove(self.tree.selection())
+                self.tree.selection_set(item)
+                self.tree.see(item)
+                self.tree.focus(item)
+                
+                # Tạo tag highlight
+                self.tree.tag_configure("highlight", background='#d4edda')
+                self.tree.item(item, tags=("highlight",))
+                
+                self.root.after(2000, lambda: self.tree.item(item, tags=()))
+                break
+    
+    def refresh_all(self):
+        """Làm mới tất cả dữ liệu"""
+        self.load_events()
+        self.update_calendar()
+        self.status_var.set("🔄 Đã làm mới dữ liệu")
     
     def test_nlp(self):
         """Test chức năng NLP với câu mẫu"""
@@ -954,81 +1363,154 @@ Bạn có muốn thêm sự kiện này?
         messagebox.showinfo("NHẮC NHỞ SỰ KIỆN", message)
 
 class EditEventDialog:
-    def __init__(self, parent, event_data):
-        self.parent = parent
-        self.event_data = event_data
-        self.result = None
-        
+    def __init__(self, parent, current_event):
         self.dialog = tk.Toplevel(parent)
-        self.dialog.title("Chỉnh sửa sự kiện")
-        self.dialog.geometry("500x400")  # Tăng kích thước để chứa thêm trường
+        self.dialog.title("Sửa sự kiện")
+        self.dialog.geometry("500x500")  # Kích thước cửa sổ
+        
+        # Đặt cửa sổ ở giữa màn hình
+        screen_width = parent.winfo_screenwidth()
+        screen_height = parent.winfo_screenheight()
+        
+        window_width = 500
+        window_height = 500
+        
+        x = (screen_width - window_width) // 2
+        y = (screen_height - window_height) // 2
+        
+        self.dialog.geometry(f'{window_width}x{window_height}+{x}+{y}')
+        
+        # Ngăn không cho tương tác với cửa sổ chính
         self.dialog.transient(parent)
         self.dialog.grab_set()
         
-        self.setup_dialog()
+        self.result = None
+        self.setup_gui(current_event)
     
-    def setup_dialog(self):
-        main_frame = ttk.Frame(self.dialog, padding="10")
+    def setup_gui(self, current_event):
+        # Tạo main frame với padding
+        main_frame = ttk.Frame(self.dialog, padding="20")
         main_frame.pack(fill=tk.BOTH, expand=True)
         
+        # Tiêu đề
+        title_label = ttk.Label(main_frame, 
+                            text="✏️ Sửa thông tin sự kiện",
+                            font=("Segoe UI", 14, "bold"))
+        title_label.pack(pady=(0, 20))
+        
         # Tên sự kiện
-        ttk.Label(main_frame, text="Tên sự kiện:").grid(row=0, column=0, sticky=tk.W, pady=5)
-        self.event_entry = ttk.Entry(main_frame, width=40)
-        self.event_entry.grid(row=0, column=1, sticky=(tk.W, tk.E), pady=5)
-        self.event_entry.insert(0, self.event_data["event"])
+        ttk.Label(main_frame, text="Tên sự kiện:", font=("Segoe UI", 10)).pack(anchor=tk.W)
+        self.event_var = tk.StringVar(value=current_event["event"])
+        event_entry = ttk.Entry(main_frame, textvariable=self.event_var, width=50)
+        event_entry.pack(fill=tk.X, pady=(5, 15))
         
         # Thời gian bắt đầu
-        ttk.Label(main_frame, text="Thời gian bắt đầu:").grid(row=1, column=0, sticky=tk.W, pady=5)
-        self.start_time_entry = ttk.Entry(main_frame, width=40)
-        self.start_time_entry.grid(row=1, column=1, sticky=(tk.W, tk.E), pady=5)
+        ttk.Label(main_frame, text="Thời gian bắt đầu:", font=("Segoe UI", 10)).pack(anchor=tk.W)
         
-        start_time = datetime.fromisoformat(self.event_data["start_time"])
-        self.start_time_entry.insert(0, start_time.strftime('%Y-%m-%d %H:%M'))
+        time_frame = ttk.Frame(main_frame)
+        time_frame.pack(fill=tk.X, pady=(5, 15))
         
-        # Thời gian kết thúc (MỚI)
-        ttk.Label(main_frame, text="Thời gian kết thúc:").grid(row=2, column=0, sticky=tk.W, pady=5)
-        self.end_time_entry = ttk.Entry(main_frame, width=40)
-        self.end_time_entry.grid(row=2, column=1, sticky=(tk.W, tk.E), pady=5)
+        # Parse thời gian từ chuỗi ISO
+        start_time = datetime.fromisoformat(current_event["start_time"])
         
-        if self.event_data["end_time"]:
-            end_time = datetime.fromisoformat(self.event_data["end_time"])
-            self.end_time_entry.insert(0, end_time.strftime('%Y-%m-%d %H:%M'))
+        # Ngày
+        self.date_var = tk.StringVar(value=start_time.strftime("%d/%m/%Y"))
+        date_entry = ttk.Entry(time_frame, textvariable=self.date_var, width=15)
+        date_entry.pack(side=tk.LEFT, padx=(0, 10))
+        
+        # Giờ
+        self.hour_var = tk.StringVar(value=start_time.strftime("%H"))
+        hour_spinbox = ttk.Spinbox(time_frame, from_=0, to=23, textvariable=self.hour_var, width=5)
+        hour_spinbox.pack(side=tk.LEFT, padx=(0, 5))
+        ttk.Label(time_frame, text=":").pack(side=tk.LEFT)
+        
+        # Phút
+        self.minute_var = tk.StringVar(value=start_time.strftime("%M"))
+        minute_spinbox = ttk.Spinbox(time_frame, from_=0, to=59, textvariable=self.minute_var, width=5)
+        minute_spinbox.pack(side=tk.LEFT)
+        
+        # Thời gian kết thúc (luôn hiển thị, có thể để trống)
+        ttk.Label(main_frame, text="Thời gian kết thúc (tùy chọn):", font=("Segoe UI", 10)).pack(anchor=tk.W, pady=(10, 0))
+        
+        end_time_frame = ttk.Frame(main_frame)
+        end_time_frame.pack(fill=tk.X, pady=(5, 15))
+        
+        # Parse thời gian kết thúc nếu có
+        if current_event["end_time"]:
+            end_time = datetime.fromisoformat(current_event["end_time"])
+            self.end_date_var = tk.StringVar(value=end_time.strftime("%d/%m/%Y"))
+            self.end_hour_var = tk.StringVar(value=end_time.strftime("%H"))
+            self.end_minute_var = tk.StringVar(value=end_time.strftime("%M"))
         else:
-            self.end_time_entry.insert(0, "")
+            self.end_date_var = tk.StringVar(value="")
+            self.end_hour_var = tk.StringVar(value="")
+            self.end_minute_var = tk.StringVar(value="")
+        
+        end_date_entry = ttk.Entry(end_time_frame, textvariable=self.end_date_var, width=15)
+        end_date_entry.pack(side=tk.LEFT, padx=(0, 10))
+        
+        end_hour_spinbox = ttk.Spinbox(end_time_frame, from_=0, to=23, textvariable=self.end_hour_var, width=5)
+        end_hour_spinbox.pack(side=tk.LEFT, padx=(0, 5))
+        ttk.Label(end_time_frame, text=":").pack(side=tk.LEFT)
+        
+        end_minute_spinbox = ttk.Spinbox(end_time_frame, from_=0, to=59, textvariable=self.end_minute_var, width=5)
+        end_minute_spinbox.pack(side=tk.LEFT)
         
         # Địa điểm
-        ttk.Label(main_frame, text="Địa điểm:").grid(row=3, column=0, sticky=tk.W, pady=5)
-        self.location_entry = ttk.Entry(main_frame, width=40)
-        self.location_entry.grid(row=3, column=1, sticky=(tk.W, tk.E), pady=5)
-        self.location_entry.insert(0, self.event_data["location"])
+        ttk.Label(main_frame, text="Địa điểm:", font=("Segoe UI", 10)).pack(anchor=tk.W)
+        self.location_var = tk.StringVar(value=current_event["location"])
+        location_entry = ttk.Entry(main_frame, textvariable=self.location_var, width=50)
+        location_entry.pack(fill=tk.X, pady=(5, 15))
         
         # Nhắc nhở
-        ttk.Label(main_frame, text="Nhắc nhở (phút):").grid(row=4, column=0, sticky=tk.W, pady=5)
-        self.reminder_entry = ttk.Entry(main_frame, width=40)
-        self.reminder_entry.grid(row=4, column=1, sticky=(tk.W, tk.E), pady=5)
-        self.reminder_entry.insert(0, str(self.event_data["reminder_minutes"]))
+        ttk.Label(main_frame, text="Nhắc nhở (phút):", font=("Segoe UI", 10)).pack(anchor=tk.W)
+        self.reminder_var = tk.StringVar(value=str(current_event["reminder_minutes"]))
+        reminder_spinbox = ttk.Spinbox(main_frame, from_=0, to=1440, textvariable=self.reminder_var, width=10)
+        reminder_spinbox.pack(anchor=tk.W, pady=(5, 20))
         
-        # Nút
+        # Nút hành động
         button_frame = ttk.Frame(main_frame)
-        button_frame.grid(row=5, column=0, columnspan=2, pady=20)
+        button_frame.pack(fill=tk.X, pady=(20, 0))
         
-        ttk.Button(button_frame, text="Lưu", command=self.save).pack(side=tk.LEFT, padx=5)
-        ttk.Button(button_frame, text="Hủy", command=self.cancel).pack(side=tk.LEFT, padx=5)
-        
-        main_frame.columnconfigure(1, weight=1)
+        ttk.Button(button_frame, text="Lưu", command=self.save).pack(side=tk.RIGHT, padx=(5, 0))
+        ttk.Button(button_frame, text="Hủy", command=self.cancel).pack(side=tk.RIGHT)
     
     def save(self):
         try:
+            # Parse ngày bắt đầu
+            day, month, year = map(int, self.date_var.get().split('/'))
+            hour = int(self.hour_var.get())
+            minute = int(self.minute_var.get())
+            
+            start_time = datetime(year, month, day, hour, minute)
+            start_time_str = start_time.isoformat()
+            
+            # Parse ngày kết thúc (nếu có dữ liệu)
+            end_time_str = None
+            if self.end_date_var.get() and self.end_hour_var.get() and self.end_minute_var.get():
+                try:
+                    end_day, end_month, end_year = map(int, self.end_date_var.get().split('/'))
+                    end_hour = int(self.end_hour_var.get())
+                    end_minute = int(self.end_minute_var.get())
+                    
+                    end_time = datetime(end_year, end_month, end_day, end_hour, end_minute)
+                    end_time_str = end_time.isoformat()
+                except:
+                    # Nếu có lỗi khi parse thời gian kết thúc, bỏ qua và để None
+                    pass
+            
             self.result = {
-                "event": self.event_entry.get(),
-                "start_time": datetime.strptime(self.start_time_entry.get(), '%Y-%m-%d %H:%M').isoformat(),
-                "end_time": datetime.strptime(self.end_time_entry.get(), '%Y-%m-%d %H:%M').isoformat() if self.end_time_entry.get() else None,
-                "location": self.location_entry.get(),
-                "reminder_minutes": int(self.reminder_entry.get())
+                "event": self.event_var.get(),
+                "start_time": start_time_str,
+                "end_time": end_time_str,
+                "location": self.location_var.get(),
+                "reminder_minutes": int(self.reminder_var.get())
             }
+            
             self.dialog.destroy()
-        except ValueError as e:
-            messagebox.showerror("Lỗi", "Định dạng thời gian không hợp lệ! Sử dụng YYYY-MM-DD HH:MM\nThời gian kết thúc có thể để trống")
+            
+        except Exception as e:
+            messagebox.showerror("Lỗi", f"Dữ liệu không hợp lệ: {str(e)}")
     
     def cancel(self):
         self.dialog.destroy()
