@@ -641,7 +641,6 @@ class ScheduleApp:
             "nhac toi hop nhom luc 10 gio sang mai va ket thuc luc 12h o phong 302, nhac truoc 15 phut",
             "nhắc tôi họp công ty tại tầng 5 lúc 9:30 sáng mai, nhắc trước 20 phút",
             "nhắc tôi họp công ty lúc 9:30 sáng mai tại tầng 5, nhắc trước 20 phút",
-            "nhac toi hop cong ty tai tang 5 luc 9:30 sang mai, nhac truoc 20 phut",
         ]
         
         print("\n" + "="*60)
