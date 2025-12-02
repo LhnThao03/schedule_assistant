@@ -6,6 +6,7 @@ import threading
 import time
 from underthesea import word_tokenize, ner
 from datetime import datetime, timedelta
+import uuid
 import re
 import unicodedata
 
@@ -720,13 +721,6 @@ class ScheduleApp:
                               fg='white')
         title_label.pack(side=tk.LEFT)
         
-        subtitle_label = tk.Label(logo_frame,
-                                 text="Trợ lý lịch trình thông minh",
-                                 font=('Segoe UI', 11),
-                                 bg=self.colors['primary'],
-                                 fg=self.colors['light'])
-        subtitle_label.pack(side=tk.LEFT, padx=(10, 0))
-        
         # Status label trên header
         self.status_var = tk.StringVar()
         self.status_var.set("🟢 Sẵn sàng")
@@ -867,12 +861,12 @@ class ScheduleApp:
         
         # Định nghĩa kích thước các cột
         column_widths = {
-            "ID": 50,
+            "ID": 40,
             "Sự kiện": 150,
-            "Thời gian bắt đầu": 160,
-            "Thời gian kết thúc": 160,
-            "Địa điểm": 150,
-            "Nhắc nhở": 100
+            "Thời gian bắt đầu": 150,
+            "Thời gian kết thúc": 150,
+            "Địa điểm": 100,
+            "Nhắc nhở": 80
         }
         
         for col in columns:
