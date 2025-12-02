@@ -8,7 +8,6 @@ from underthesea import word_tokenize, ner
 from datetime import datetime, timedelta
 import uuid
 import re
-import unicodedata
 
 class VietnameseNLPProcessor:
     """Bộ xử lý NLP tiếng Việt"""
@@ -50,20 +49,13 @@ class VietnameseNLPProcessor:
             r'nhắc\s+nhở\s*trước\s*(\d+)',
             r'trước\s*(\d+)\s*$'
         ]
-        
-    def remove_accents(self, text):
-        """Chuyển đổi tiếng Việt có dấu thành không dấu"""
-        return ''.join(
-            c for c in unicodedata.normalize('NFD', text)
-            if unicodedata.category(c) != 'Mn'
-        )
     
     def normalize_text(self, text):
         """Chuẩn hóa văn bản"""
         # Chuyển về chữ thường
         text = text.lower().strip()
         
-        # Thứ hai tới → thứ 2 tuần tới
+        # Thứ hai tới -> thứ 2 tuần tới
         text = re.sub(r'\bthu\s+([0-9]+|[a-z]+)\s+\btoi\b', r'thứ \1 tuần tới', text)
 
         # Chuẩn hóa các từ viết tắt (cả có dấu và không dấu)
@@ -76,7 +68,7 @@ class VietnameseNLPProcessor:
         text = re.sub(r'\btruoc\b', 'trước', text)
 
         # Chuẩn hóa thời gian
-        text = re.sub(r'(\d+)\s*gio\b', r'\1 giờ', text)  # Bỏ \b ở sau gio
+        text = re.sub(r'(\d+)\s*gio\b', r'\1 giờ', text)
         text = re.sub(r'(\d+)\s*g\b', r'\1 giờ', text)
         text = re.sub(r'(\d+)\s*h\b', r'\1 giờ', text)
         text = re.sub(r'(\d+)\s*phut\b', r'\1 phút', text)
@@ -934,8 +926,7 @@ class ReminderSystem:
                     
                     if current_time >= reminder_time and current_time < reminder_time + timedelta(minutes=1):
                         self.gui_callback(f"Sắp diễn ra: {event_name}\nThời gian: {start_time.strftime('%H:%M %d/%m/%Y')}\nĐịa điểm: {location}")
-                
-                time.sleep(60)
+                time.sleep(60) # Nhắc nhở mỗi phút
             except Exception as e:
                 time.sleep(60)
 
@@ -944,7 +935,7 @@ class ScheduleApp:
     
     def __init__(self, root):
         self.root = root
-        self.root.title("✨ Personal Schedule Assistant ✨")
+        self.root.title("Trợ lý quản lý lịch trình cá nhân")
         self.root.geometry("1400x900")
 
         screen_width = root.winfo_screenwidth()
@@ -1025,7 +1016,7 @@ class ScheduleApp:
         logo_frame.pack(side=tk.LEFT, padx=20)
         
         title_label = tk.Label(logo_frame, 
-                              text="📅 Personal Schedule Assistant", 
+                              text="📅 Trợ lý quản lý lịch trình cá nhân", 
                               font=('Segoe UI', 20, 'bold'),
                               bg=self.colors['primary'],
                               fg='white')
@@ -1221,7 +1212,7 @@ class ScheduleApp:
         footer_frame.pack_propagate(False)
         
         footer_label = tk.Label(footer_frame,
-                               text="© 2025 Personal Schedule Assistant",
+                               text="© 2025 Trợ lý quản lý lịch trình cá nhân.",
                                font=('Segoe UI', 9),
                                bg=self.colors['light'],
                                fg=self.colors['dark'])
