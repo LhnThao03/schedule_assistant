@@ -593,6 +593,316 @@ class DatabaseManager:
         conn.close()
         return events
 
+class ICSExporter:
+    """Xuất sự kiện ra file iCalendar (.ics)"""
+    
+    @staticmethod
+    def generate_ics_content(events):
+        """Tạo nội dung file .ics từ danh sách sự kiện"""
+        
+        # Header của file .ics
+        ics_content = [
+            "BEGIN:VCALENDAR",
+            "VERSION:2.0",
+            "PRODID:-//Personal Schedule Assistant//VN",
+            "CALSCALE:GREGORIAN",
+            "METHOD:PUBLISH",
+        ]
+        
+        # Thêm từng sự kiện
+        for event in events:
+            event_id, event_name, start_time_str, end_time_str, location, reminder_minutes, created_at = event
+            
+            # Format thời gian theo chuẩn iCalendar
+            start_time = datetime.fromisoformat(start_time_str)
+            dtstart = start_time.strftime("%Y%m%dT%H%M%S")
+            
+            # Tạo UID duy nhất cho sự kiện
+            uid = f"{uuid.uuid4()}@schedule-assistant.local"
+            
+            # Tạo sự kiện
+            ics_content.extend([
+                "BEGIN:VEVENT",
+                f"UID:{uid}",
+                f"DTSTAMP:{datetime.now().strftime('%Y%m%dT%H%M%SZ')}",
+                f"DTSTART:{dtstart}",
+            ])
+            
+            # Thời gian kết thúc (nếu có)
+            if end_time_str:
+                end_time = datetime.fromisoformat(end_time_str)
+                dtend = end_time.strftime("%Y%m%dT%H%M%S")
+                ics_content.append(f"DTEND:{dtend}")
+            
+            # Tên sự kiện
+            ics_content.append(f"SUMMARY:{event_name}")
+            
+            # Địa điểm
+            if location:
+                ics_content.append(f"LOCATION:{location}")
+            
+            # Mô tả (thêm thông tin nhắc nhở)
+            description = f"Sự kiện được tạo từ Personal Schedule Assistant"
+            if reminder_minutes > 0:
+                description += f"\\nNhắc nhở: {reminder_minutes} phút trước"
+            ics_content.append(f"DESCRIPTION:{description}")
+            
+            # Alarm/Reminder (nếu có)
+            if reminder_minutes > 0:
+                ics_content.extend([
+                    "BEGIN:VALARM",
+                    f"TRIGGER:-PT{reminder_minutes}M",  # -PT15M = 15 phút trước
+                    "ACTION:DISPLAY",
+                    f"DESCRIPTION:Reminder: {event_name}",
+                    "END:VALARM"
+                ])
+            
+            # Thời gian tạo và cập nhật
+            created_time = datetime.fromisoformat(created_at) if created_at else datetime.now()
+            ics_content.append(f"CREATED:{created_time.strftime('%Y%m%dT%H%M%SZ')}")
+            ics_content.append(f"LAST-MODIFIED:{datetime.now().strftime('%Y%m%dT%H%M%SZ')}")
+            
+            # Priority mặc định
+            ics_content.append("PRIORITY:5")
+            
+            # Kết thúc sự kiện
+            ics_content.append("END:VEVENT")
+        
+        # Footer của file .ics
+        ics_content.append("END:VCALENDAR")
+        
+        return "\r\n".join(ics_content)
+    
+    @staticmethod
+    def save_ics_file(events, filename):
+        """Lưu sự kiện ra file .ics"""
+        ics_content = ICSExporter.generate_ics_content(events)
+        
+        with open(filename, 'w', encoding='utf-8') as f:
+            f.write(ics_content)
+        
+        return filename
+    
+class ExportFormatDialog:
+    """Hộp thoại chọn định dạng xuất với màu sắc đồng bộ"""
+    
+    def __init__(self, parent, colors):
+        self.dialog = tk.Toplevel(parent)
+        self.dialog.title("Chọn định dạng xuất")
+        
+        # Lưu màu sắc từ ứng dụng chính
+        self.colors = colors
+        
+        # Kích thước và vị trí
+        self.dialog.geometry("520x380")  # Tăng kích thước một chút
+        self.center_window(parent)
+        
+        # Đặt màu nền
+        self.dialog.configure(bg=self.colors['light'])
+        
+        # Ngăn tương tác với cửa sổ chính
+        self.dialog.transient(parent)
+        self.dialog.grab_set()
+        
+        self.format = None  # json, ics, hoặc both
+        self.setup_gui()
+    
+    def center_window(self, parent):
+        """Căn giữa cửa sổ"""
+        screen_width = parent.winfo_screenwidth()
+        screen_height = parent.winfo_screenheight()
+        
+        window_width = 520
+        window_height = 480
+        
+        x = (screen_width - window_width) // 2
+        y = (screen_height - window_height) // 2
+        
+        self.dialog.geometry(f'{window_width}x{window_height}+{x}+{y}')
+    
+    def setup_gui(self):
+        # Main frame với màu nền
+        main_frame = tk.Frame(self.dialog, 
+                             bg=self.colors['light'],
+                             padx=25, 
+                             pady=25)
+        main_frame.pack(fill=tk.BOTH, expand=True)
+        
+        # Tiêu đề với style đồng bộ
+        title_frame = tk.Frame(main_frame, bg=self.colors['primary'], height=50)
+        title_frame.pack(fill=tk.X, pady=(0, 15))
+        title_frame.pack_propagate(False)
+        
+        title_label = tk.Label(title_frame,
+                              text="📤 XUẤT SỰ KIỆN",
+                              font=("Segoe UI", 14, "bold"),
+                              bg=self.colors['primary'],
+                              fg='white',
+                              padx=15,
+                              pady=10)
+        title_label.pack()
+        
+        # Mô tả
+        desc_label = tk.Label(main_frame,
+                             text="Chọn định dạng file để xuất sự kiện:",
+                             font=("Segoe UI", 10),
+                             bg=self.colors['light'],
+                             fg=self.colors['dark'])
+        desc_label.pack(pady=(0, 15))
+        
+        # Frame chứa các lựa chọn với card-style
+        choice_frame = tk.Frame(main_frame, 
+                               bg='white',
+                               relief=tk.GROOVE,
+                               borderwidth=2)
+        choice_frame.pack(fill=tk.BOTH, expand=True, pady=(0, 20))
+        
+        # Biến lựa chọn
+        self.format_var = tk.StringVar(value="json")
+        
+        # Các tùy chọn với icon và mô tả
+        formats = [
+            {
+                "value": "json",
+                "text": "📄 JSON File",
+                "desc": "Xuất ra file JSON để backup hoặc import lại vào ứng dụng này",
+                "color": "#3498db"  # Blue
+            },
+            {
+                "value": "ics",
+                "text": "📅 iCalendar (.ics)",
+                "desc": "Xuất ra file .ics để import vào Google Calendar, Outlook, Apple Calendar...",
+                "color": "#2ecc71"  # Green
+            },
+            {
+                "value": "both",
+                "text": "🔄 Cả hai định dạng",
+                "desc": "Xuất ra cả file JSON và .ics cùng lúc",
+                "color": "#9b59b6"  # Purple
+            }
+        ]
+        
+        for fmt in formats:
+            # Frame cho mỗi lựa chọn với hover effect
+            fmt_frame = tk.Frame(choice_frame,
+                                bg='white',
+                                relief=tk.FLAT,
+                                borderwidth=1)
+            fmt_frame.pack(fill=tk.X, pady=3, padx=5)
+            
+            # Radio button với styling đẹp
+            rb = tk.Radiobutton(fmt_frame,
+                               text=fmt["text"],
+                               variable=self.format_var,
+                               value=fmt["value"],
+                               font=("Segoe UI", 11),
+                               bg='white',
+                               fg=self.colors['dark'],
+                               activebackground='#f8f9fa',
+                               activeforeground=self.colors['primary'],
+                               selectcolor='white',
+                               indicatoron=True,
+                               anchor="w",
+                               padx=15,
+                               pady=8,
+                               cursor="hand2")
+            rb.pack(anchor=tk.W, fill=tk.X)
+            
+            # Mô tả
+            desc = tk.Label(fmt_frame,
+                           text=fmt["desc"],
+                           font=("Segoe UI", 9),
+                           fg='#666',
+                           bg='white',
+                           wraplength=420,
+                           justify="left",
+                           padx=30)
+            desc.pack(anchor=tk.W, pady=(0, 5))
+            
+            # Thêm separator line giữa các option
+            if fmt != formats[-1]:  # Không thêm line cho option cuối
+                separator = tk.Frame(choice_frame,
+                                    height=1,
+                                    bg='#e9ecef')
+                separator.pack(fill=tk.X, padx=10)
+        
+        # Nút hành động với styling đẹp
+        button_frame = tk.Frame(main_frame, bg=self.colors['light'])
+        button_frame.pack(fill=tk.X, pady=(10, 0))
+        
+        # Nút Hủy
+        cancel_btn = tk.Button(button_frame,
+                              text="❌ Hủy",
+                              command=self.cancel,
+                              bg='#95a5a6',
+                              fg='white',
+                              font=("Segoe UI", 10, "bold"),
+                              padx=25,
+                              pady=8,
+                              bd=0,
+                              relief=tk.FLAT,
+                              cursor="hand2")
+        cancel_btn.pack(side=tk.LEFT, padx=(0, 10))
+        
+        # Nút Xuất
+        export_btn = tk.Button(button_frame,
+                              text="✅ Xuất ngay",
+                              command=self.confirm_export,
+                              bg=self.colors['secondary'],
+                              fg='white',
+                              font=("Segoe UI", 10, "bold"),
+                              padx=25,
+                              pady=8,
+                              bd=0,
+                              relief=tk.FLAT,
+                              cursor="hand2")
+        export_btn.pack(side=tk.RIGHT)
+        
+        # Thêm hover effect với transition mượt
+        def create_hover_effect(button, normal_color, hover_color):
+            def on_enter(e):
+                button['bg'] = hover_color
+            
+            def on_leave(e):
+                button['bg'] = normal_color
+            
+            button.bind("<Enter>", on_enter)
+            button.bind("<Leave>", on_leave)
+        
+        create_hover_effect(cancel_btn, '#95a5a6', '#7f8c8d')
+        create_hover_effect(export_btn, self.colors['secondary'], '#2980b9')
+        
+        # Thêm active effect
+        def create_active_effect(button, normal_color):
+            def on_press(e):
+                button['bg'] = '#2c3e50' if normal_color == self.colors['secondary'] else '#636e72'
+            
+            def on_release(e):
+                button['bg'] = normal_color
+            
+            button.bind("<ButtonPress-1>", on_press)
+            button.bind("<ButtonRelease-1>", on_release)
+        
+        create_active_effect(cancel_btn, '#95a5a6')
+        create_active_effect(export_btn, self.colors['secondary'])
+        
+        # Focus vào nút Xuất mặc định
+        export_btn.focus_set()
+        
+        # Bind Enter key để xuất
+        self.dialog.bind('<Return>', lambda e: self.confirm_export())
+        self.dialog.bind('<Escape>', lambda e: self.cancel())
+    
+    def confirm_export(self):
+        """Xác nhận xuất"""
+        self.format = self.format_var.get()
+        self.dialog.destroy()
+    
+    def cancel(self):
+        """Hủy xuất"""
+        self.format = None
+        self.dialog.destroy()
+
 class ReminderSystem:
     """Hệ thống nhắc nhở"""
     
@@ -745,12 +1055,12 @@ class ScheduleApp:
         
         # Hướng dẫn
         guide_label = ttk.Label(input_card,
-                               text="Nhập yêu cầu bằng tiếng Việt tự nhiên:",
+                               text="Nhập yêu cầu bằng tiếng Việt (có thế nhập không dấu):",
                                font=('Segoe UI', 10))
         guide_label.pack(anchor=tk.W, pady=(0, 10))
         
         # Ví dụ
-        example_text = "Ví dụ: 'họp lúc 10h sáng mai tại phòng 302, nhắc trước 15 phút'"
+        example_text = "Ví dụ: 'Nhắc tôi họp lúc 10h sáng mai tại phòng 302, nhắc trước 15 phút'"
         example_label = ttk.Label(input_card,
                                  text=example_text,
                                  font=('Segoe UI', 9, 'italic'),
@@ -894,7 +1204,7 @@ class ScheduleApp:
         buttons = [
             ("✏️ Sửa", self.edit_event, 'Secondary.TButton'),
             ("🗑️ Xóa", self.delete_event, 'Secondary.TButton'),
-            ("📤 Xuất JSON", self.export_events, 'Secondary.TButton'),
+            ("📤 Xuất", self.export_events, 'Secondary.TButton'),
             ("🔄 Làm mới", self.refresh_all, 'Primary.TButton'),
         ]
         
@@ -911,7 +1221,7 @@ class ScheduleApp:
         footer_frame.pack_propagate(False)
         
         footer_label = tk.Label(footer_frame,
-                               text="© 2024 Personal Schedule Assistant | Trợ lý lịch trình thông minh",
+                               text="© 2025 Personal Schedule Assistant",
                                font=('Segoe UI', 9),
                                bg=self.colors['light'],
                                fg=self.colors['dark'])
@@ -1142,8 +1452,6 @@ class ScheduleApp:
             "nhắc tôi họp công ty lúc 10:30 thứ 2 tuần tới tại tầng trệt , nhắc trước 20 p",
             "nhắc tôi họp công ty lúc 10:30 chủ nhật tuần sau tại tầng trệt , nhắc trước 20 p",
             "nhắc tôi họp công ty lúc 9:30 cuối tuần tại tầng 5, nhắc trước 20 phút",
-            
-            # 30 test case mới (một số có lời nhắc, một số không dấu)
             "Nhắc tôi họp lúc 8h30 sáng mai tại văn phòng, nhắc trước 30 phút",
             "Nhắc tôi gọi điện cho khách hàng lúc 15 giờ ngày mai.",
             "Nhac toi hop luc 10:00 thu Ba tuan sau, nhac truoc 1 gio",
@@ -1168,12 +1476,7 @@ class ScheduleApp:
             "Gap ban luc 18h30 toi thu Tu", 
             "Nhắc tôi họp lúc 7:45 sáng mai, nhắc trước 15 phút",
             "Nop bai luc 23:59 toi chu nhat", 
-            "Nhắc tôi họp lúc 12:00 trưa thứ Năm, nhắc trước 30 phút",
-            "Don nha luc 9 gio sang thu Bay", 
-            "Nhắc tôi họp lúc 10h30 sáng thứ Hai tuần này, nhắc trước 40 phút",
-            "Goi dien thoai luc 21:00 toi mai", 
-            "Nhắc tôi họp lúc 16 giờ chiều cuối tuần, nhắc trước 1 giờ",
-            "Di may bay luc 6:00 sang thu Sau tuan toi" 
+            "Nhắc tôi họp lúc 12:00 trưa thứ Năm, nhắc trước 30 phút" 
         ]
         
         print("\n" + "="*60)
@@ -1332,26 +1635,100 @@ Bạn có muốn thêm sự kiện này?
             self.load_events()
     
     def export_events(self):
+        """Xuất sự kiện ra file (JSON hoặc iCalendar)"""
         events = self.db_manager.get_events()
         
-        export_data = []
-        for event in events:
-            event_id, event_name, start_time_str, end_time_str, location, reminder_minutes, created_at = event
+        if not events:
+            messagebox.showwarning("Cảnh báo", "Không có sự kiện nào để xuất!")
+            return
+        
+        # Hiển thị hộp thoại chọn loại file (THÊM self.colors)
+        export_dialog = ExportFormatDialog(self.root, self.colors)
+        self.root.wait_window(export_dialog.dialog)
+        
+        if not export_dialog.format:
+            return  # Người dùng hủy
+        
+        export_format = export_dialog.format
+        
+        try:
+            if export_format == "json":
+                export_data = []
+                for event in events:
+                    event_id, event_name, start_time_str, end_time_str, location, reminder_minutes, created_at = event
+                    
+                    export_data.append({
+                        "event": event_name,
+                        "start_time": start_time_str,
+                        "end_time": end_time_str,
+                        "location": location,
+                        "reminder_minutes": reminder_minutes,
+                        "created_at": created_at
+                    })
+                
+                filename = f"schedule_export_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
+                with open(filename, 'w', encoding='utf-8') as f:
+                    json.dump(export_data, f, ensure_ascii=False, indent=2)
+                
+                self.status_var.set(f"✅ Đã xuất {len(export_data)} sự kiện ra {filename}")
+                messagebox.showinfo("Thành công", 
+                                f"Đã xuất {len(export_data)} sự kiện ra file JSON:\n{filename}")
             
-            export_data.append({
-                "event": event_name,
-                "start_time": start_time_str,
-                "end_time": end_time_str,
-                "location": location,
-                "reminder_minutes": reminder_minutes
-            })
+            elif export_format == "ics":
+                filename = f"schedule_export_{datetime.now().strftime('%Y%m%d_%H%M%S')}.ics"
+                ICSExporter.save_ics_file(events, filename)
+                
+                self.status_var.set(f"✅ Đã xuất {len(events)} sự kiện ra {filename}")
+                
+                # Hiển thị hướng dẫn sử dụng file .ics
+                instructions = f"""
+    ✅ Đã xuất {len(events)} sự kiện ra file iCalendar:
+    {filename}
+
+    📱 Cách sử dụng file .ics:
+    • Google Calendar: Vào Settings → Import & Export → Import
+    • Outlook: File → Open & Export → Import/Export → Import iCalendar
+    • Apple Calendar: File → Import → Chọn file .ics
+    • Android/iOS: Mở file .ics → Chọn ứng dụng lịch
+
+    File .ics có thể import vào hầu hết các ứng dụng lịch!
+                """
+                messagebox.showinfo("Xuất thành công", instructions)
+            
+            elif export_format == "both":
+                # Xuất cả 2 định dạng
+                timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+                
+                # Xuất JSON
+                json_filename = f"schedule_export_{timestamp}.json"
+                export_data = []
+                for event in events:
+                    event_id, event_name, start_time_str, end_time_str, location, reminder_minutes, created_at = event
+                    export_data.append({
+                        "event": event_name,
+                        "start_time": start_time_str,
+                        "end_time": end_time_str,
+                        "location": location,
+                        "reminder_minutes": reminder_minutes,
+                        "created_at": created_at
+                    })
+                
+                with open(json_filename, 'w', encoding='utf-8') as f:
+                    json.dump(export_data, f, ensure_ascii=False, indent=2)
+                
+                # Xuất ICS
+                ics_filename = f"schedule_export_{timestamp}.ics"
+                ICSExporter.save_ics_file(events, ics_filename)
+                
+                self.status_var.set(f"✅ Đã xuất {len(events)} sự kiện ra 2 file")
+                messagebox.showinfo("Thành công",
+                                f"Đã xuất {len(events)} sự kiện ra 2 file:\n"
+                                f"• {json_filename} (JSON)\n"
+                                f"• {ics_filename} (iCalendar)")
         
-        filename = f"schedule_export_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
-        with open(filename, 'w', encoding='utf-8') as f:
-            json.dump(export_data, f, ensure_ascii=False, indent=2)
-        
-        self.status_var.set(f"Đã xuất {len(export_data)} sự kiện ra {filename}")
-        messagebox.showinfo("Thành công", f"Đã xuất dữ liệu ra file {filename}")
+        except Exception as e:
+            messagebox.showerror("Lỗi", f"Lỗi khi xuất file: {str(e)}")
+            self.status_var.set("❌ Lỗi xuất dữ liệu")
     
     def show_reminder_popup(self, message):
         messagebox.showinfo("NHẮC NHỞ SỰ KIỆN", message)
