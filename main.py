@@ -1087,7 +1087,7 @@ class ScheduleApp:
         
         # Nút Test NLP
         # self.test_button = ttk.Button(button_container,
-        #                              text="🧪 Test NLP",
+        #                              text="Test NLP",
         #                              command=self.test_nlp,
         #                              style='Secondary.TButton')
         # self.test_button.pack(side=tk.LEFT, padx=(10, 0), pady=(5, 0))
