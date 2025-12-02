@@ -1,7 +1,6 @@
 # 📅 Personal Schedule Assistant - Trợ lý Lịch trình Cá nhân
 
 [![Python](https://img.shields.io/badge/Python-3.8+-blue.svg)](https://www.python.org/)
-[![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 [![Status](https://img.shields.io/badge/Status-Complete-success.svg)]()
 
 **Một ứng dụng quản lý lịch trình thông minh với khả năng xử lý ngôn ngữ tự nhiên tiếng Việt**
@@ -16,7 +15,6 @@
 - [🧠 Xử lý NLP tiếng Việt](#-xử-lý-nlp-tiếng-việt)
 - [📚 Hướng dẫn sử dụng](#-hướng-dẫn-sử-dụng)
 - [🔧 Kiến trúc hệ thống](#-kiến-trúc-hệ-thống)
-- [🧪 Kết quả thử nghiệm](#-kết-quả-thử-nghiệm)
 - [📄 Tài liệu tham khảo](#-tài-liệu-tham-khảo)
 
 ---
@@ -88,6 +86,7 @@ python main.py
 ```
 
 ## 📁 Cấu trúc dự án
+```bash
 personal-schedule-assistant/
 ├── README.md                    # Tài liệu hướng dẫn
 ├── main.py                      # File code chính
@@ -96,6 +95,7 @@ personal-schedule-assistant/
 ├── schedule.db                  # Database (tự động tạo)
 ├── schedule_export_*.json      # File export JSON (tự động tạo)
 └── schedule_export_*.ics       # File export iCalendar (tự động tạo)
+```
 
 ## 🧠 Xử lý NLP tiếng Việt
 **Các mẫu câu hỗ trợ**
