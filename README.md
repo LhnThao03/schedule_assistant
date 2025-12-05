@@ -91,10 +91,9 @@ personal-schedule-assistant/
 ├── README.md                    # Tài liệu hướng dẫn
 ├── main.py                      # File code chính
 ├── requirements.txt             # Danh sách thư viện
-├── test_cases.txt              # Các test case NLP
 ├── schedule.db                  # Database (tự động tạo)
-├── schedule_export_*.json      # File export JSON (tự động tạo)
-└── schedule_export_*.ics       # File export iCalendar (tự động tạo)
+├── schedule_export_*.json       # File export JSON (tự động tạo)
+└── schedule_export_*.ics        # File export iCalendar (tự động tạo)
 ```
 
 ## 🧠 Xử lý NLP tiếng Việt

@@ -1457,11 +1457,11 @@ class ScheduleApp:
             "Nhắc tôi học bài lúc 19h30 tối thứ Năm.",
             "Hop luc 10 gio sang cuoi tuan, nhac truoc 30 phut", 
             "Nhắc tôi gửi email lúc 16h45 chiều thứ Tư.",
-            "Nhắc tôi họp lúc 9:00 sáng chủ nhật tuần này, nhắc trước 1 giờ",
+            "Nhắc tôi họp lúc 9:00 sáng chủ nhật tuần này tại phòng E502, trường Đại học Sài Gòn, nhắc trước 1 giờ",
             "Di sieu thi luc 10 gio 30 sang thu Bay", 
             "Nhắc tôi họp lúc 11h trưa mai, nhắc trước 20 phút",
             "Goi cho sep luc 15:30 chieu thu Sau", 
-            "Nhắc tôi họp tổng kết lúc 14 giờ ngày mai, nhắc trước 1 giờ",
+            "Nhắc tôi họp tổng kết lúc 14 giờ thứ 4 3 tuần nữa, nhắc trước 1 giờ",
             "Dam cuoi luc 17:00 thu Bay tuan sau", 
             "Nhắc tôi họp lúc 8 giờ sáng thứ Hai tuần tới, nhắc trước 25 phút",
             "Gap ban luc 18h30 toi thu Tu", 
@@ -1481,15 +1481,18 @@ class ScheduleApp:
             if "error" not in result:
                 start_time = datetime.fromisoformat(result['start_time'])
                 end_time = datetime.fromisoformat(result['end_time']) if result['end_time'] else None
-                
-                print(f"✓ Sự kiện: {result['event']}")
-                print(f"✓ Thời gian bắt đầu: {start_time.strftime('%H:%M %d/%m/%Y')}")
-                if end_time:
-                    print(f"✓ Thời gian kết thúc: {end_time.strftime('%H:%M %d/%m/%Y')}")
-                else:
-                    print(f"✓ Thời gian kết thúc: Không có")
-                print(f"✓ Địa điểm: {result['location']}")
-                print(f"✓ Nhắc nhở: trước {result['reminder_minutes']} phút")
+                # in 1 dòng
+                end_str = end_time.strftime('%H:%M %d/%m/%Y') if end_time else 'Không có'
+                print(f"event: {result['event']}, start: {start_time.strftime('%H:%M %d/%m/%Y')}, end: {end_str}, location: {result['location']}, reminder: {result['reminder_minutes']}p")
+                #in nhiều dòng
+                # print(f"✓ Sự kiện: {result['event']}")
+                # print(f"✓ Thời gian bắt đầu: {start_time.strftime('%H:%M %d/%m/%Y')}")
+                # if end_time:
+                #     print(f"✓ Thời gian kết thúc: {end_time.strftime('%H:%M %d/%m/%Y')}")
+                # else:
+                #     print(f"✓ Thời gian kết thúc: Không có")
+                # print(f"✓ Địa điểm: {result['location']}")
+                # print(f"✓ Nhắc nhở: trước {result['reminder_minutes']} phút")
             else:
                 print(f"✗ Lỗi: {result['error']}")
         
